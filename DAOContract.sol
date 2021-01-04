@@ -19,11 +19,11 @@ contract DAOContract {
 
     // Переменная для хранения токена
     ChangableToken public token;
-
+    
     uint private count = 1;
-    uint private timeOut = 1 days;
+    uint private timeOut = 1 days; // Тайм-аут ожидания окончания голосования
     uint private time;
-
+    
     // Минимальное число голосов
     uint public minVotes = 600000;
 
@@ -34,8 +34,8 @@ contract DAOContract {
     struct Votes {
         string typeOfPolling; // Тип голосования
         string proposalValue; // Предложенное значение
-        int current;
-        uint numberOfVotes;
+        int current; // Текущее значение голосов
+        uint numberOfVotes; // Общее количество голосов
     }
 
     // Переменная для структуры голосов
@@ -62,9 +62,9 @@ contract DAOContract {
             election.typeOfPolling = "New Name";
             election.proposalValue = _value;
         }
-
+        
         voteActive = true;
-        time = block.timestamp;
+        time = block.timestamp; // Время открытия голосования
     }
 
     // Функция для голосования
@@ -112,42 +112,36 @@ contract DAOContract {
         require(time != 0);
 
         // Проверяем, что было достаточное количество голосов или время истекло
-        if (election.numberOfVotes >= minVotes || time + timeOut < block.timestamp) {
-
+        require(election.numberOfVotes >= minVotes || time + timeOut < block.timestamp);
+        
             // Логика для подведения итогов
             if (election.current > 0) {
                 // Изменение тикера
                 if (keccak256(abi.encodePacked(election.typeOfPolling)) == keccak256(abi.encodePacked("New Symbol"))) {
                     token.changeSymbol(election.proposalValue);
                 }
-
+                
                 // Изменение имени токена
                 if (keccak256(abi.encodePacked(election.typeOfPolling)) == keccak256(abi.encodePacked("New Name"))) {
                     token.changeName(election.proposalValue);
                 }
             }
-
+    
             // Сбрасываем все переменные для голосования
             election.numberOfVotes = 0;
             election.current = 0;
-
+            
             voteActive = false;
             minVotes = 600000;
             time = 0;
             election.proposalValue = "";
             election.typeOfPolling = "";
-
+    
             // Удаляем списки голосовавших
             for(uint i = 0 ; i<count; i++) {
                 token.useList("votersList1", "delete", i, token.viewList(i));
                 token.useList("votersList", "delete", i, msg.sender);
             }
             count = 1;
-        }
-
-        // Иначе отклоняем транзакцию
-        else {
-            revert();
-        }
     }
 }
