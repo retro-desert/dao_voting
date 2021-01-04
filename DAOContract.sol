@@ -8,7 +8,7 @@ interface ChangableToken {
     function changeSymbol(string memory _symbol) external;
     function changeName(string memory _name) external;
     function balanceOf(address _user) external returns (uint256);
-    function viewOwner() external payable returns (address);
+    function viewOwner() external returns (address);
     function viewList(uint _uint) external returns (address);
     function viewList1(address _address) external returns (uint);
     function useList(string memory _name, string memory _func, uint _uint, address _address) external;
