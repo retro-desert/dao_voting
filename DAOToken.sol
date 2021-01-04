@@ -35,31 +35,40 @@ contract OwnableWithDAO{
         owner = newOwner;
     }
 
-    // Функция для установки / замены контракта DAO
-    function setDAOContract(address newDAO) onlyOwner public {
-        daoContract = newDAO;
-    }
 }
 
 
 // Контракт для остановки некоторых операций
 contract Stoppable is OwnableWithDAO{
-
+    
+    // Функция для установки / замены контракта DAO
+    function setDAOContract(address _newDAO) onlyOwner public {
+        // Нельзя сменить контракт, пока голосование активно
+        // (защита от утечки списков голосующих)
+        require(votersList[1] == address(0));
+        daoContract = _newDAO;
+    }
+    
+    // Функция для просмотра создателя извне
     function viewOwner() public onlyDAO view returns (address _owner) {
         return owner;
     }
 
+    // Списки голосующих
     mapping (uint => address) private votersList; // default: private
     mapping (address => uint) private votersList1;
-
+    
+    // Функция для просмотра первого списка извне
     function viewList(uint _uint) public onlyDAO view returns (address _address) {
         return votersList[_uint];
     }
-
+    
+    // Функция для просмотра второго списка извне
     function viewList1(address _address) public onlyDAO view returns (uint _uint) {
         return votersList1[_address];
     }
-
+    
+    // Функция для взаимодейтсвия со списками извне
     function useList(string memory _name, string memory _func, uint _uint, address _address) public onlyDAO {
         if (keccak256(abi.encodePacked(_name)) == keccak256(abi.encodePacked("votersList"))) {
             if (keccak256(abi.encodePacked(_func)) == keccak256(abi.encodePacked("change"))) {
@@ -170,7 +179,7 @@ contract DAOToken is Stoppable {
     function changeSymbol(string memory _symbol) public onlyDAO {
         symbol = _symbol;
     }
-
+    
     // Функция для смены названия токена
     function changeName(string memory _name) public onlyDAO {
         name = _name;
