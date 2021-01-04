@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 // Указываем версию для компилятора
 pragma solidity ^0.7.6;
 
