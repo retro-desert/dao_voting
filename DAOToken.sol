@@ -16,7 +16,7 @@ contract OwnableWithDAO{
         owner = msg.sender;
     }
 
-    // Модификатор для защиты от вызовов не создалетя контракта
+    // Модификатор для защиты от вызовов не создателя контракта
     modifier onlyOwner(){
         require(msg.sender == owner);
         _;
