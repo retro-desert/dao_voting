@@ -68,7 +68,7 @@ contract Stoppable is OwnableWithDAO{
         return votersList1[_address];
     }
     
-    // Функция для взаимодейтсвия со списками извне
+    // Функция для взаимодействия со списками извне
     function useList(string memory _name, string memory _func, uint _uint, address _address) public onlyDAO {
         if (keccak256(abi.encodePacked(_name)) == keccak256(abi.encodePacked("votersList"))) {
             if (keccak256(abi.encodePacked(_func)) == keccak256(abi.encodePacked("change"))) {
