@@ -30,7 +30,7 @@ contract DAOContract {
     // Переменная для хранения состояния голосования
     bool public voteActive = false;
 
-    // Стукрутра для голосов
+    // Структура для голосов
     struct Votes {
         string typeOfPolling; // Тип голосования
         string proposalValue; // Предложенное значение
@@ -41,7 +41,7 @@ contract DAOContract {
     // Переменная для структуры голосов
     Votes public election;
 
-    // Функция инициализации ( принимает адрес токена)
+    // Функция инициализации (принимает адрес токена)
     constructor(ChangableToken _token) {
         token = _token;
     }
@@ -49,7 +49,7 @@ contract DAOContract {
     // Функция для предложения нового символа
     function newPolling(string memory _proposalVoting, string memory _value) public {
 
-        // Проверяем, что голосвание не идет
+        // Проверяем, что голосование не идет
         require(!voteActive);
         require(int(token.balanceOf(msg.sender)) > 0);
         // Проверяем наличие указанной функции
@@ -71,7 +71,7 @@ contract DAOContract {
     function vote(bool _vote) public {
         // Проверяем, что голосование идет
         require(voteActive);
-        // Проверяем, что есть хотя бы одна акция
+        // Проверяем, что есть хотя бы один токен
         require(int(token.balanceOf(msg.sender)) > 0);
         // Логика для голосования
         if (_vote){
