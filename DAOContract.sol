@@ -34,6 +34,7 @@ contract DAOContract {
     struct Votes {
         string typeOfPolling; // Тип голосования
         string proposalValue; // Предложенное значение
+        string addtnlValue; // Дополнительное значение
         int current; // Текущее значение голосов
         uint numberOfVotes; // Общее количество голосов
     }
@@ -47,20 +48,35 @@ contract DAOContract {
     }
 
     // Функция для предложения нового символа
-    function newPolling(string memory _proposalVoting, string memory _value) public {
+    function newPolling(string memory _proposalVoting, string memory _value, string memory _additionalValue) public {
 
         // Проверяем, что голосование не идет
         require(!voteActive);
         require(int(token.balanceOf(msg.sender)) > 0);
         // Проверяем наличие указанной функции
-        require(keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newName")) || keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newSymbol")));
+        require(
+            keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newName")) 
+            || keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newSymbol")) 
+            || keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newPolling")));
+        
+        // Ограничение на символы
+        bytes memory bs = bytes(_value);
+        require(bs.length <= 32);
+        bs = bytes(_additionalValue);
+        require(bs.length <= 256);
+        
         if (keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newSymbol"))) {
-            election.typeOfPolling = "New Symbol";
-            election.proposalValue = _value;
+            election.typeOfPolling = "New Symbol"; // Тип опроса
+            election.proposalValue = _value; // Предложенное значение
         }
         if (keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newName"))) {
-            election.typeOfPolling = "New Name";
-            election.proposalValue = _value;
+            election.typeOfPolling = "New Name"; // Тип опроса
+            election.proposalValue = _value; // Предложенное значение
+        }
+        if (keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newPolling"))){
+            election.typeOfPolling = "Polling"; // Тип опроса
+            election.proposalValue = _value; // Название опроса
+            election.addtnlValue = _additionalValue; // Краткое описание
         }
         
         voteActive = true;
@@ -68,41 +84,29 @@ contract DAOContract {
     }
 
     // Функция для голосования
-    function vote(bool _vote) public {
+    function vote(string memory _vote) public {
+        require(
+            keccak256(abi.encodePacked(_vote)) == keccak256(abi.encodePacked("true"))
+            || keccak256(abi.encodePacked(_vote)) == keccak256(abi.encodePacked("false")));
         // Проверяем, что голосование идет
         require(voteActive);
         // Проверяем, что есть хотя бы один токен
         require(int(token.balanceOf(msg.sender)) > 0);
-        // Логика для голосования
-        if (_vote){
-            require(token.viewList1(msg.sender) == 0); // Проверка на повторное участие
-
-            // Если владелец проголосовал, то минимальное количество голосов увеличивается
-            if (token.viewOwner() == msg.sender) {
-                minVotes += 500000;
-            }
-            election.current += int(token.balanceOf(msg.sender));
-
-            token.useList("votersList", "change", count, msg.sender); // Присваивание уникального номера (нигде не отображается)
-            token.useList("votersList1", "change", count, msg.sender);
-            count++;
-        }
+        require(token.viewList1(msg.sender) == 0); // Проверка на повторное участие
+        
+        if (keccak256(abi.encodePacked(_vote)) == keccak256(abi.encodePacked("true"))){
+            election.current += int(token.balanceOf(msg.sender));}
         else {
-            require(token.viewList1(msg.sender) == 0); // Проверка на повторное участие
-            // Если владелец проголосовал, то минимальное количество голосов увеличивается
-            if (msg.sender == token.viewOwner()) {
-                minVotes += 500000;
-            }
-            election.current -= int(token.balanceOf(msg.sender));
+            election.current -= int(token.balanceOf(msg.sender));}
 
-            token.useList("votersList", "change", count, msg.sender); // Присваивание уникального номера (нигде не отображается)
-            token.useList("votersList1", "change", count, msg.sender);
-            count++;
-        }
-
+        // Если владелец проголосовал, то минимальное количество голосов увеличивается
+        if (msg.sender == token.viewOwner()) {
+                minVotes += 500000;}
         election.numberOfVotes += token.balanceOf(msg.sender);
+        token.useList("votersList", "change", count, msg.sender); // Присваивание уникального номера (нигде не отображается)
+        token.useList("votersList1", "change", count, msg.sender);
+        count++;
     }
-
     // Функция для смены символа
     function toSumUp() public {
 
@@ -136,6 +140,7 @@ contract DAOContract {
             time = 0;
             election.proposalValue = "";
             election.typeOfPolling = "";
+            election.addtnlValue = "";
     
             // Удаляем списки голосовавших
             for(uint i = 0 ; i<count; i++) {
