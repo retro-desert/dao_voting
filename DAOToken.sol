@@ -109,7 +109,7 @@ contract DAOToken is Stoppable {
     uint256 public totalSupply;
 
     // Объявляем маппинг для хранения балансов пользователей
-    mapping (address => uint256) public balances;
+    mapping (address => uint256) internal balances;
     // Объявляем маппинг для хранения одобренных транзакций
     mapping (address => mapping (address => uint256)) public allowance;
 
