@@ -37,6 +37,32 @@ contract OwnableWithDAO{
 
 }
 
+/*
+   SafeMath
+   Математические операторы с проверками ошибок
+ */
+library SafeMath {
+  function mul(uint _a, uint _b) internal pure returns (uint) {
+    uint c = _a * _b;
+    assert(_a == 0 || c / _a == _b);
+    return c;
+  }
+  function div(uint _a, uint _b) internal pure returns (uint) {
+    // assert(b > 0); // Solidity автоматически выбрасывает ошибку при делении на ноль, так что проверка не имеет смысла
+    uint c = _a / _b;
+    // assert(a == b * c + a % b); // Не существует случая, когда эта проверка не была бы пройдена
+    return c;
+  }
+  function sub(uint _a, uint _b) internal pure returns (uint) {
+    assert(_b <= _a);
+    return _a - _b;
+  }
+  function add(uint _a, uint _b) internal pure returns (uint) {
+    uint c = _a + _b;
+    assert(c >= _a);
+    return c;
+  }
+}
 
 // Контракт для остановки некоторых операций
 contract Stoppable is OwnableWithDAO{
@@ -68,28 +94,32 @@ contract Stoppable is OwnableWithDAO{
         return votersList1[_address];
     }
     
+    function strToBytes32(string memory _string) internal pure returns(bytes32) {
+        return keccak256(abi.encodePacked(_string));
+    }
+    
     // Функция для взаимодействия со списками извне
     function useList(string memory _name, string memory _func, uint _uint, address _address) public onlyDAO {
-        if (keccak256(abi.encodePacked(_name)) == keccak256(abi.encodePacked("votersList"))) {
-            if (keccak256(abi.encodePacked(_func)) == keccak256(abi.encodePacked("change"))) {
+        if (strToBytes32(_name) == strToBytes32("votersList")) {
+            if (strToBytes32(_func) == strToBytes32("change")) {
                 votersList[_uint] = _address;
             }
-            if (keccak256(abi.encodePacked(_func)) == keccak256(abi.encodePacked("delete"))) {
+            if (strToBytes32(_func) == strToBytes32("delete")) {
                 delete votersList[_uint];
             }
         }
-        if (keccak256(abi.encodePacked(_name)) == keccak256(abi.encodePacked("votersList1"))) {
-            if (keccak256(abi.encodePacked(_func)) == keccak256(abi.encodePacked("change"))) {
+        if (strToBytes32(_name) == strToBytes32("votersList1")) {
+            if (strToBytes32(_func) == strToBytes32("change")) {
                 votersList1[_address] = _uint;
             }
-            if (keccak256(abi.encodePacked(_func)) == keccak256(abi.encodePacked("delete"))) {
+            if (strToBytes32(_func) == strToBytes32("delete")) {
                 delete votersList1[_address];
             }
         }
     }
     // Модификатор для проверки возможности выполнения функции
     modifier stoppable(address _address) {
-        require(uint(votersList1[_address]) == uint(0));
+        require(votersList1[_address] == 0);
         _;
     }
 }
@@ -97,6 +127,7 @@ contract Stoppable is OwnableWithDAO{
 
 // Инициализация контракта
 contract DAOToken is Stoppable {
+    using SafeMath for uint;
 
     // Объявляем переменную в которой будет название токена
     string public name;
@@ -106,17 +137,17 @@ contract DAOToken is Stoppable {
     uint8 public decimals;
 
     // Объявляем переменную в которой будет храниться общее число токенов
-    uint256 public totalSupply;
+    uint public totalSupply;
 
     // Объявляем маппинг для хранения балансов пользователей
-    mapping (address => uint256) internal balances;
+    mapping (address => uint) internal balances;
     // Объявляем маппинг для хранения одобренных транзакций
-    mapping (address => mapping (address => uint256)) public allowance;
+    mapping (address => mapping (address => uint)) public allowance;
 
     // Объявляем эвент для логгирования события перевода токенов
-    event Transfer(address from, address to, uint256 value);
+    event Transfer(address from, address to, uint value);
     // Объявляем эвент для логгирования события одобрения перевода токенов
-    event Approval(address from, address to, uint256 value);
+    event Approval(address from, address to, uint value);
 
 
     // Функция инициализации контракта
@@ -124,7 +155,7 @@ contract DAOToken is Stoppable {
         // Указываем число нулей
         decimals = 0;
         // Объявляем общее число токенов, которое будет создано при инициализации
-        totalSupply = 1500000 * (10 ** uint256(decimals));
+        totalSupply = 1500000 * (10 ** uint(decimals));
         // 10000000 * (10^decimals)
 
         // "Отправляем" все токены на баланс того, кто инициализировал создание контракта токена
@@ -137,27 +168,29 @@ contract DAOToken is Stoppable {
     }
 
     // Внутренняя функция для перевода токенов
-    function transfer(address _to, uint256 _value) public stoppable(msg.sender) returns (bool success) {
-        require(_to != payable(0x0));
+    function transfer(address _to, uint _value) public stoppable(msg.sender) returns (bool success) {
+        require(_to != address(0));
         require(balances[msg.sender] >= _value);
-        require(balances[_to] + _value >= balances[_to]);
-
-        balances[msg.sender] -= _value;
-        balances[_to] += _value;
+        
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
 
         emit Transfer(msg.sender, _to, _value);
         return true;
     }
 
     // Функция для перевода "одобренных" токенов
-    function transferFrom(address _from, address _to, uint256 _value) public stoppable(msg.sender) returns (bool success) {
+    function transferFrom(address _from, address _to, uint _value) public stoppable(msg.sender) returns (bool success) {
+        require(_to != address(0));
+        require(_value <= balances[_from]);
         // Проверка, что токены были выделены аккаунтом _from для аккаунта _to
         require(_value <= allowance[_from][_to]);
-
+        
         // Уменьшаем число "одобренных" токенов
-        allowance[_from][_to] -= _value;
+        allowance[_from][msg.sender] = allowance[_from][msg.sender].sub(_value);
         // Отправка токенов
         transfer(_to, _value);
+        
         emit Transfer(_from, _to, _value);
         return true;
     }
@@ -167,7 +200,7 @@ contract DAOToken is Stoppable {
     }
 
     // Функция для "одобрения" перевода токенов
-    function approve(address _to, uint256 _value) public stoppable(msg.sender) returns (bool success) {
+    function approve(address _to, uint _value) public stoppable(msg.sender) returns (bool success) {
         // Запись в мапппинг число "одобренных" токенов
         allowance[msg.sender][_to] = _value;
         // Вызов ивента для логгирования события одобрения перевода токенов
