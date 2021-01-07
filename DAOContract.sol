@@ -7,15 +7,43 @@ pragma solidity ^0.7.6;
 interface ChangableToken {
     function changeSymbol(string memory _symbol) external;
     function changeName(string memory _name) external;
-    function balanceOf(address _user) external returns (uint256);
+    function balanceOf(address _user) external returns (uint);
     function viewOwner() external returns (address);
     function viewList(uint _uint) external returns (address);
     function viewList1(address _address) external returns (uint);
     function useList(string memory _name, string memory _func, uint _uint, address _address) external;
 }
 
+/*
+   SafeMath
+   Математические операторы с проверками ошибок
+ */
+library SafeMath {
+  function mul(uint _a, uint _b) internal pure returns (uint) {
+    uint c = _a * _b;
+    assert(_a == 0 || c / _a == _b);
+    return c;
+  }
+  function div(uint _a, uint _b) internal pure returns (uint) {
+    // assert(b > 0); // Solidity автоматически выбрасывает ошибку при делении на ноль, так что проверка не имеет смысла
+    uint c = _a / _b;
+    // assert(a == b * c + a % b); // Не существует случая, когда эта проверка не была бы пройдена
+    return c;
+  }
+  function sub(uint _a, uint _b) internal pure returns (uint) {
+    assert(_b <= _a);
+    return _a - _b;
+  }
+  function add(uint _a, uint _b) internal pure returns (uint) {
+    uint c = _a + _b;
+    assert(c >= _a);
+    return c;
+  }
+}
+
 // Контракт ДАО
 contract DAOContract {
+    using SafeMath for uint;
 
     // Переменная для хранения токена
     ChangableToken public token;
@@ -35,7 +63,7 @@ contract DAOContract {
         string typeOfPolling; // Тип голосования
         string proposalValue; // Предложенное значение
         string addtnlValue; // Дополнительное значение
-        int current; // Текущее значение голосов
+        uint current; // Текущее значение голосов
         uint numberOfVotes; // Общее количество голосов
     }
 
@@ -47,17 +75,21 @@ contract DAOContract {
         token = _token;
     }
 
+    function strToBytes32(string memory _string) internal pure returns(bytes32) {
+        return keccak256(abi.encodePacked(_string));
+    }
+    
     // Функция для предложения нового символа
     function newPolling(string memory _proposalVoting, string memory _value, string memory _additionalValue) public {
 
         // Проверяем, что голосование не идет
         require(!voteActive);
-        require(int(token.balanceOf(msg.sender)) > 0);
+        require(token.balanceOf(msg.sender) > 0);
         // Проверяем наличие указанной функции
         require(
-            keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newName")) 
-            || keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newSymbol")) 
-            || keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newPolling")));
+            strToBytes32(_proposalVoting) == strToBytes32("newName")
+            || strToBytes32(_proposalVoting) == strToBytes32("newSymbol")
+            || strToBytes32(_proposalVoting) == strToBytes32("newPolling"));
         
         // Ограничение на символы
         bytes memory bs = bytes(_value);
@@ -65,15 +97,15 @@ contract DAOContract {
         bs = bytes(_additionalValue);
         require(bs.length <= 256);
         
-        if (keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newSymbol"))) {
+        if (strToBytes32(_proposalVoting) == strToBytes32("newSymbol")) {
             election.typeOfPolling = "New Symbol"; // Тип опроса
             election.proposalValue = _value; // Предложенное значение
         }
-        if (keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newName"))) {
+        if (strToBytes32(_proposalVoting) == strToBytes32("newName")) {
             election.typeOfPolling = "New Name"; // Тип опроса
             election.proposalValue = _value; // Предложенное значение
         }
-        if (keccak256(abi.encodePacked(_proposalVoting)) == keccak256(abi.encodePacked("newPolling"))){
+        if (strToBytes32(_proposalVoting) == strToBytes32("newPolling")){
             election.typeOfPolling = "Polling"; // Тип опроса
             election.proposalValue = _value; // Название опроса
             election.addtnlValue = _additionalValue; // Краткое описание
@@ -86,23 +118,24 @@ contract DAOContract {
     // Функция для голосования
     function vote(string memory _vote) public {
         require(
-            keccak256(abi.encodePacked(_vote)) == keccak256(abi.encodePacked("true"))
-            || keccak256(abi.encodePacked(_vote)) == keccak256(abi.encodePacked("false")));
+            strToBytes32(_vote) == strToBytes32("true")
+            || strToBytes32(_vote) == strToBytes32("false"));
         // Проверяем, что голосование идет
         require(voteActive);
         // Проверяем, что есть хотя бы один токен
-        require(int(token.balanceOf(msg.sender)) > 0);
+        require(token.balanceOf(msg.sender) > 0);
         require(token.viewList1(msg.sender) == 0); // Проверка на повторное участие
         
-        if (keccak256(abi.encodePacked(_vote)) == keccak256(abi.encodePacked("true"))){
-            election.current += int(token.balanceOf(msg.sender));}
+        if (strToBytes32(_vote) == strToBytes32("true")){
+            election.current = election.current.add(token.balanceOf(msg.sender));}
         else {
-            election.current -= int(token.balanceOf(msg.sender));}
+            election.current = election.current.sub(token.balanceOf(msg.sender));}
 
         // Если владелец проголосовал, то минимальное количество голосов увеличивается
         if (msg.sender == token.viewOwner()) {
-                minVotes += 500000;}
-        election.numberOfVotes += token.balanceOf(msg.sender);
+                minVotes = minVotes.add(500000);}
+        
+        election.numberOfVotes = election.numberOfVotes.add(token.balanceOf(msg.sender));
         token.useList("votersList", "change", count, msg.sender); // Присваивание уникального номера (нигде не отображается)
         token.useList("votersList1", "change", count, msg.sender);
         count++;
@@ -116,18 +149,26 @@ contract DAOContract {
         require(time != 0);
 
         // Проверяем, что было достаточное количество голосов или время истекло
-        require(election.numberOfVotes >= minVotes || time + timeOut < block.timestamp);
+        require(
+            election.numberOfVotes >= minVotes
+            || time + timeOut < block.timestamp);
         
             // Логика для подведения итогов
             if (election.current > 0) {
                 // Изменение тикера
-                if (keccak256(abi.encodePacked(election.typeOfPolling)) == keccak256(abi.encodePacked("New Symbol"))) {
-                    token.changeSymbol(election.proposalValue);
+                if (
+                    strToBytes32(election.typeOfPolling)
+                    == strToBytes32("New Symbol")) {
+                        
+                        token.changeSymbol(election.proposalValue);
                 }
                 
                 // Изменение имени токена
-                if (keccak256(abi.encodePacked(election.typeOfPolling)) == keccak256(abi.encodePacked("New Name"))) {
-                    token.changeName(election.proposalValue);
+                if (
+                    strToBytes32(election.typeOfPolling)
+                    == strToBytes32("New Name")) {
+                        
+                        token.changeName(election.proposalValue);
                 }
             }
     
@@ -138,6 +179,7 @@ contract DAOContract {
             voteActive = false;
             minVotes = 600000;
             time = 0;
+            
             election.proposalValue = "";
             election.typeOfPolling = "";
             election.addtnlValue = "";
