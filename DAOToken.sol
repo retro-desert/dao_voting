@@ -218,3 +218,21 @@ contract DAOToken is Stoppable {
         name = _name;
     }
 }
+
+contract BurnableToken is DAOToken {
+    using SafeMath for uint;
+    event Burn(address indexed burner, uint256 value);
+    /*
+      Сжигает определённое количество токенов.
+    */
+    function burn(uint256 _value) public {
+        require(_value > 0);
+        require(_value <= balances[msg.sender]);
+        // нет необходимости проверять value <= totalSupply, так как это будет подразумевать, что
+        // баланс отправителя больше, чем totalSupply, что должно привести к ошибке
+        address burner = msg.sender;
+        balances[burner] = balances[burner].sub(_value);
+        totalSupply = totalSupply.sub(_value);
+        emit Burn(burner, _value);
+  }
+}
